@@ -95,9 +95,6 @@ int main() {
 
           /*
           * TODO: Calculate steering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
           */
           double steer_value = 0;
           double throttle_value = 0;
@@ -113,9 +110,9 @@ int main() {
 
           // coefficients of 3rd degree polynomial for waypoint / reference trajectory in vehicle coordinates
           Eigen::VectorXd poly_coeffs = polyfit(trans_wp_x, trans_wp_y, 3);
-          // cte calculated in vehicle coordinates
+          // cte calculated in vehicle coordinates at x=0, y=0
           double cte = polyeval(poly_coeffs, 0) - 0;
-          // atan of f'(x) where f(x) is a 3rd polynomial
+          // atan of f'(x) where f(x) is a 3rd degree polynomial
           // psi in vehicle coordinates = 0, x = 0
           double epsi = 0 - atan(poly_coeffs[1]);
 
@@ -139,6 +136,7 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
+
           int N = (solutions.size() - 2) / 2;
 
           for (int i = 0; i < N; ++i) {
@@ -151,7 +149,6 @@ int main() {
           //Display the waypoints/reference line
           vector<double> next_x_vals;
           vector<double> next_y_vals;
-
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
