@@ -44,7 +44,7 @@ double polyeval(Eigen::VectorXd coeffs, double x) {
 // Fit a polynomial.
 // Adapted from
 // https://github.com/JuliaMath/Polynomials.jl/blob/master/src/Polynomials.jl#L676-L716
-Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
+Eigen::VectorXd polyfit(const Eigen::VectorXd& xvals, const Eigen::VectorXd& yvals,
                         int order) {
   assert(xvals.size() == yvals.size());
   assert(order >= 1 && order <= xvals.size() - 1);
@@ -64,6 +64,7 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
   auto result = Q.solve(yvals);
   return result;
 }
+
 
 int main() {
   uWS::Hub h;
@@ -98,8 +99,33 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          double steer_value;
-          double throttle_value;
+          double steer_value = 0;
+          double throttle_value = 0;
+
+          // transform waypoint coordinates to vehicle coordinates
+          Eigen::VectorXd trans_wp_x(ptsx.size());
+          Eigen::VectorXd trans_wp_y(ptsx.size());
+
+          for (size_t i = 0; i < ptsx.size(); ++i) {
+            trans_wp_x[i] = cos(-psi) * (ptsx[i] - px) - sin(-psi) * (ptsy[i] - py);
+            trans_wp_y[i] = sin(-psi) * (ptsx[i] - px) + cos(-psi) * (ptsy[i] - py);
+          }
+
+          // coefficients of 3rd degree polynomial for waypoint / reference trajectory in vehicle coordinates
+          Eigen::VectorXd poly_coeffs = polyfit(trans_wp_x, trans_wp_y, 3);
+          // cte calculated in vehicle coordinates
+          double cte = polyeval(poly_coeffs, 0) - 0;
+          // atan of f'(x) where f(x) is a 3rd polynomial
+          // psi in vehicle coordinates = 0, x = 0
+          double epsi = 0 - atan(poly_coeffs[1]);
+
+          Eigen::VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi;
+
+          std::vector<double> solutions = mpc.Solve(state, poly_coeffs);
+          steer_value = -1 * solutions[1] / deg2rad(25);
+          throttle_value = solutions[0];
+
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
@@ -113,7 +139,12 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
+          int N = (solutions.size() - 2) / 2;
 
+          for (int i = 0; i < N; ++i) {
+            mpc_x_vals.push_back(solutions[2 + i]);
+            mpc_y_vals.push_back(solutions[2 + N + i]);
+          }
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
@@ -121,8 +152,13 @@ int main() {
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
+
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
+          for (size_t i = 0; i < ptsx.size(); ++i) {
+            next_x_vals.push_back(trans_wp_x[i]);
+            next_y_vals.push_back(trans_wp_y[i]);
+          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
