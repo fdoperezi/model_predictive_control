@@ -7,7 +7,7 @@ using CppAD::AD;
 
 // TODO: Set the timestep length and duration
 size_t N = 10;
-double dt = 0.05;
+double dt = 0.1;
 double ref_v = 60;
 double latency = 0.1;
 
@@ -50,8 +50,8 @@ class FG_eval {
     // setting up the cost function
     fg[0] = 0;
     for (size_t t = 0; t < N; ++t) {
-      fg[0] += 500 * CppAD::pow(vars[cte_start + t], 2);
-      fg[0] += 500 * CppAD::pow(vars[epsi_start + t], 2);
+      fg[0] += 1000 * CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += 1000 * CppAD::pow(vars[epsi_start + t], 2);
       // penalize deviations from ref speed
       fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
@@ -99,9 +99,13 @@ class FG_eval {
       AD<double> cte0 = vars[cte_start + t - 1];
       AD<double> epsi0 = vars[epsi_start + t - 1];
 
-      if (t > 2) {
-        a0 = vars[a_start + t - 3];
-        delta0 = vars[delta_start + t - 3];
+      double delay = latency / dt;
+      if (t < delay) {
+        a0 = 0;
+        delta0 = 0;
+      } else if (t > delay) {
+        a0 = vars[a_start + t - (1 + delay)];
+        delta0 = vars[delta_start + t - (1 + delay)];
       }
 
       // formulating state variable equation so that they can be used by the solver
