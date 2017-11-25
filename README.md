@@ -1,7 +1,57 @@
-# CarND-Controls-MPC
+# Model Predictive Control Project
 Self-Driving Car Engineer Nanodegree Program
 
+![](https://media.giphy.com/media/BZUXTEvJSPsUo/giphy.gif)
+
 ---
+
+## Project rubric points
+
+### The model: 
+The model used is the kinematic model presented in the lectures. The model consists of six state variables: x,y position, the vehicles orientation angle psi, the vehicle's velocity v as well as the cross tracking and orientation error cte resp. epsi. The control / actuation variables are the steering angle delta and the longitudinal acceleration a (gas/brake pedal). The equations and constraints are shown below.
+
+![](res/model_equations.png)
+
+### Timestep length and elapsed duration (N & dt)
+The prediction horizon N and the prediction frequency were chosen experimentally. 
+Starting with the parameters from the "mind the line" project N=25, dt=0.05 the parameters were both independently increased and decreased. The optimal values found are N=10 and dt=0.1. A longer prediction horizon N>10 results in worse short-term controls due to the  increased uncertainty. A more complex model which takes the increasing uncertainty over time into account e.g. by weighting short-term predictions higher, might improve the performance.
+On the other hand N<10 also leads to worse performance, since the planned short-term trajectory fails to anticipate important road conditions (e.g. curves).
+The update frequency is highly dependent on the control latency. An update frequency which is equal to the latency allows an easy handling of the problems that arise when dealing with latency. More on that in the latency section.
+
+### Polynomial fitting and MPC preprocessing
+The state variables and waypoint coordinates are in global map coordinates. 
+All variables are transformed to local vehicle coordinates. The reference trajectory is 
+derived from these transformed waypoints by fitting a third degree polynomial accroding to the vehicle's perspective. The rotation is performed using the rotation matrix below, where the x,y coordinates are the differences between the waypoint and vehicle coordinates.
+
+![](https://wikimedia.org/api/rest_v1/media/math/render/svg/50622f9a4a7ba2961f5df5f7e0882983cf2f1d2f)
+Source: wikipedia
+
+### Model predictive control with latency
+The control outputs are only processed with 100ms latency. This leads to an instable controller behavior if it is not considered. 
+To account for this delay, the prediction time was set to the same 100ms interval. This way 
+the latency can be corrected easily by replacing the current control actuations with the 
+controls from the previous predicions, which arrive at the time of the new prediction, as shown below.
+
+```c++
+// handling the control latency
+      double delay = latency / dt;
+      if (t > delay) {
+        a0 = vars[a_start + t - (1 + delay)];
+        delta0 = vars[delta_start + t - (1 + delay)];
+      } else {
+        a0 = vars[a_start + t -1];
+        delta0 = vars[delta_start + t -1];
+      }
+```
+
+### Miscellaneous
+Some template functions were changed to improve speed, mainly replacing call by value with call by reference, especially for bigger data structures like vectors and Eigen Vectors/Matrices.
+
+
+
+
+
+
 
 ## Dependencies
 
@@ -38,71 +88,3 @@ Self-Driving Car Engineer Nanodegree Program
 3. Compile: `cmake .. && make`
 4. Run it: `./mpc`.
 
-## Tips
-
-1. It's recommended to test the MPC on basic examples to see if your implementation behaves as desired. One possible example
-is the vehicle starting offset of a straight line (reference). If the MPC implementation is correct, after some number of timesteps
-(not too many) it should find and track the reference line.
-2. The `lake_track_waypoints.csv` file has the waypoints of the lake track. You could use this to fit polynomials and points and see of how well your model tracks curve. NOTE: This file might be not completely in sync with the simulator so your solution should NOT depend on it.
-3. For visualization this C++ [matplotlib wrapper](https://github.com/lava/matplotlib-cpp) could be helpful.)
-4.  Tips for setting up your environment are available [here](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/0949fca6-b379-42af-a919-ee50aa304e6a/lessons/f758c44c-5e40-4e01-93b5-1a82aa4e044f/concepts/23d376c7-0195-4276-bdf0-e02f1f3c665d)
-5. **VM Latency:** Some students have reported differences in behavior using VM's ostensibly a result of latency.  Please let us know if issues arise as a result of a VM environment.
-
-## Editor Settings
-
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-More information is only accessible by people who are already enrolled in Term 2
-of CarND. If you are enrolled, see [the project page](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/f1820894-8322-4bb3-81aa-b26b3c6dcbaf/lessons/b1ff3be0-c904-438e-aad3-2b5379f0e0c3/concepts/1a2255a0-e23c-44cf-8d41-39b8a3c8264a)
-for instructions and the project rubric.
-
-## Hints!
-
-* You don't have to follow this directory structure, but if you do, your work
-  will span all of the .cpp files here. Keep an eye out for TODOs.
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to we ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
