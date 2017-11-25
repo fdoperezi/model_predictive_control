@@ -13,6 +13,34 @@ The model used is the kinematic model presented in the lectures. The model consi
 
 ![](res/model_equations.png)
 
+The cost / objective function combines several objectives. First and foremost it enforces only small deviations from the planned trajectory. This is ensured by an appropriate parameterization of the objective function, which prioritizes trajectory deviations.
+The objective function also considers deviations from the reference velocity as well as strong actuation controls. Further the function penalizes the change rate of the controls in order to avoid bucking.
+
+```c++
+// setting up the cost function
+    // ########################################################
+    fg[0] = 0;
+    for (size_t t = 0; t < N; ++t) {
+      fg[0] += 1000 * CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += 1000 * CppAD::pow(vars[epsi_start + t], 2);
+      // penalize deviations from ref speed
+      fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
+    }
+
+    // Minimize the use of actuators.
+    for (size_t t = 0; t < N - 1; ++t) {
+      fg[0] += CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += CppAD::pow(vars[a_start + t], 2);
+    }
+
+    // Minimize the value gap between sequential actuations.
+    for (size_t t = 0; t < N - 2; ++t) {
+      fg[0] += CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+    }
+```
+
+
 ![](res/MPC.gif)
 
 ### Timestep length and elapsed duration (N & dt)
