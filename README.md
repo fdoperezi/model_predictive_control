@@ -3,6 +3,7 @@ Self-Driving Car Engineer Nanodegree Program
 
 ![](https://media.giphy.com/media/BZUXTEvJSPsUo/giphy.gif)
 
+
 ---
 
 ## Project rubric points
@@ -11,6 +12,8 @@ Self-Driving Car Engineer Nanodegree Program
 The model used is the kinematic model presented in the lectures. The model consists of six state variables: x,y position, the vehicles orientation angle psi, the vehicle's velocity v as well as the cross tracking and orientation error cte resp. epsi. The control / actuation variables are the steering angle delta and the longitudinal acceleration a (gas/brake pedal). The equations and constraints are shown below.
 
 ![](res/model_equations.png)
+
+![](res/MPC.gif)
 
 ### Timestep length and elapsed duration (N & dt)
 The prediction horizon N and the prediction frequency were chosen experimentally. 
@@ -24,6 +27,7 @@ All variables are transformed to local vehicle coordinates. The reference trajec
 derived from these transformed waypoints by fitting a third degree polynomial accroding to the vehicle's perspective. The rotation is performed using the rotation matrix below, where the x,y coordinates are the differences between the waypoint and vehicle coordinates.
 
 ![](https://wikimedia.org/api/rest_v1/media/math/render/svg/50622f9a4a7ba2961f5df5f7e0882983cf2f1d2f)
+
 Source: wikipedia
 
 ### Model predictive control with latency
@@ -43,6 +47,10 @@ controls from the previous predicions, which arrive at the time of the new predi
         delta0 = vars[delta_start + t -1];
       }
 ```
+
+Result without taking latency into account:
+
+![](res/MPC2.gif)
 
 ### Miscellaneous
 Some template functions were changed to improve speed, mainly replacing call by value with call by reference, especially for bigger data structures like vectors and Eigen Vectors/Matrices.
