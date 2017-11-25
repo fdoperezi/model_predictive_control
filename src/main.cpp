@@ -65,12 +65,15 @@ Eigen::VectorXd polyfit(const Eigen::VectorXd& xvals, const Eigen::VectorXd& yva
   return result;
 }
 
+const double Lf = 2.67;
 
 int main() {
   uWS::Hub h;
 
   // MPC is initialized here!
   MPC mpc;
+
+
 
   h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -92,12 +95,20 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          // convert mph to m/s
+          //v *= 0.44704;
 
-          /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          */
-          double steer_value = 0;
-          double throttle_value = 0;
+          double steer_value = j[1]["steering_angle"];
+          steer_value *= -1;
+          double throttle_value = j[1]["throttle"];
+          double dt_latency = 0.1;
+          // predicting state variables with motion model
+          // to time t + latency
+          // latency: dt = 0.1
+          px += v * cos(psi) * dt_latency;
+          py += v * sin(psi) * dt_latency;
+          psi += v / Lf * steer_value * dt_latency;
+          v += throttle_value * dt_latency;
 
           // transform waypoint coordinates to vehicle coordinates
           Eigen::VectorXd trans_wp_x(ptsx.size());
@@ -110,17 +121,18 @@ int main() {
 
           // coefficients of 3rd degree polynomial for waypoint / reference trajectory in vehicle coordinates
           Eigen::VectorXd poly_coeffs = polyfit(trans_wp_x, trans_wp_y, 3);
-          // cte calculated in vehicle coordinates at x=0, y=0
-          double cte = polyeval(poly_coeffs, 0) - 0;
+
           // atan of f'(x) where f(x) is a 3rd degree polynomial
           // psi in vehicle coordinates = 0, x = 0
           double epsi = 0 - atan(poly_coeffs[1]);
+          // cte calculated in vehicle coordinates at x=0, y=0
+          double cte = polyeval(poly_coeffs, 0);
 
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi;
 
           std::vector<double> solutions = mpc.Solve(state, poly_coeffs);
-          steer_value = -1 * solutions[1] / deg2rad(25);
+          steer_value = -1 * solutions[1] / (deg2rad(25) * Lf);
           throttle_value = solutions[0];
 
 
