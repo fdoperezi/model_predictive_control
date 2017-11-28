@@ -3,9 +3,9 @@ Self-Driving Car Engineer Nanodegree Program
 
 ---
 
-[](res/MPC.gif)
+![](res/MPC.gif)
 
-[](res/MPC2.gif)
+![](res/MPC2.gif)
 
 ## Dependencies
 
