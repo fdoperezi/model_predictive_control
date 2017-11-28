@@ -95,13 +95,27 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
-          // convert mph to m/s
-          //v *= 0.44704;
 
+
+          // transform waypoint coordinates to vehicle coordinates at time t
+          // ###################################################################
+          std::vector<double> x_wp_t;
+          std::vector<double> y_wp_t;
+
+          for (int i = 0; i < ptsx.size(); ++i) {
+            x_wp_t.push_back(cos(-psi) * (ptsx[i] - px) - sin(-psi) * (ptsy[i] - py));
+            y_wp_t.push_back(sin(-psi) * (ptsx[i] - px) + cos(-psi) * (ptsy[i] - py));
+          }
+
+          // transform waypoint coordinates to vehicle coordinates at time t + latency
+          // ###################################################################
           double steer_value = j[1]["steering_angle"];
           steer_value *= -1;
           double throttle_value = j[1]["throttle"];
           double dt_latency = 0.1;
+
+          // convert speed mph to m/s
+          v *= 0.44704;
           // predicting state variables with motion model
           // to time t + latency
           // latency: dt = 0.1
@@ -110,7 +124,7 @@ int main() {
           psi += v / Lf * steer_value * dt_latency;
           v += throttle_value * dt_latency;
 
-          // transform waypoint coordinates to vehicle coordinates
+
           Eigen::VectorXd trans_wp_x(ptsx.size());
           Eigen::VectorXd trans_wp_y(ptsx.size());
 
@@ -132,7 +146,7 @@ int main() {
           state << 0, 0, 0, v, cte, epsi;
 
           std::vector<double> solutions = mpc.Solve(state, poly_coeffs);
-          steer_value = -1 * solutions[1] / (deg2rad(25) * Lf);
+          steer_value = -1 * solutions[1] / deg2rad(25);
           throttle_value = solutions[0];
 
 
@@ -158,19 +172,19 @@ int main() {
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
-          //Display the waypoints/reference line
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
+//          //Display the waypoints/reference line
+//          vector<double> next_x_vals;
+//          vector<double> next_y_vals;
+//
+//          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
+//          // the points in the simulator are connected by a Yellow line
+//          for (size_t i = 1; i < 20; ++i) {
+//            next_x_vals.push_back(2 * i);
+//            next_y_vals.push_back(polyeval(poly_coeffs, 2 * i));
+//          }
 
-          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
-          // the points in the simulator are connected by a Yellow line
-          for (size_t i = 0; i < ptsx.size(); ++i) {
-            next_x_vals.push_back(trans_wp_x[i]);
-            next_y_vals.push_back(trans_wp_y[i]);
-          }
-
-          msgJson["next_x"] = next_x_vals;
-          msgJson["next_y"] = next_y_vals;
+          msgJson["next_x"] = x_wp_t;
+          msgJson["next_y"] = y_wp_t;
 
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";

@@ -8,7 +8,7 @@ using CppAD::AD;
 // TODO: Set the timestep length and duration
 size_t N = 10;
 double dt = 0.1;
-double ref_v = 60;// * 0.44704;
+double ref_v = 80 * 0.44704;
 double latency = 0.1;
 
 // index helpers
@@ -52,20 +52,20 @@ class FG_eval {
     fg[0] = 0;
     for (size_t t = 0; t < N; ++t) {
       fg[0] += 1000 * CppAD::pow(vars[cte_start + t], 2);
-      fg[0] += 1000 * CppAD::pow(vars[epsi_start + t], 2);
+      fg[0] += 20000 * CppAD::pow(vars[epsi_start + t], 2);
       // penalize deviations from ref speed
       fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
 
     // Minimize the use of actuators.
     for (size_t t = 0; t < N - 1; ++t) {
-      fg[0] += 100 * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += 50000 * CppAD::pow(vars[delta_start + t], 2);
       fg[0] += CppAD::pow(vars[a_start + t], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (size_t t = 0; t < N - 2; ++t) {
-      fg[0] += 100 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += 80000 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
       fg[0] += CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
@@ -104,7 +104,6 @@ class FG_eval {
       // actuation
       AD<double> a0 = vars[a_start + t - 1];
       AD<double> delta0 = vars[delta_start + t - 1];
-
 
       // formulating state variable equations so that they can be used by the solver
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
@@ -174,8 +173,8 @@ vector<double> MPC::Solve(const Eigen::VectorXd& state, const Eigen::VectorXd& c
   // Set constraints for steering angle
   // [-25, 25] degrees in radian
   for (size_t k = delta_start; k < a_start; ++k) {
-    vars_lowerbound[k] = -0.436332 * Lf;
-    vars_upperbound[k] = 0.436332 * Lf;
+    vars_lowerbound[k] = -0.436332;
+    vars_upperbound[k] = 0.436332;
   }
 
   // Limit acceleration and braking to [-1,1]
@@ -248,11 +247,11 @@ vector<double> MPC::Solve(const Eigen::VectorXd& state, const Eigen::VectorXd& c
   //
 
   std::vector<double> result {solution.x[a_start], solution.x[delta_start]};
-  for (size_t i = 0; i < N - 1; ++i) {
-    result.push_back(solution.x[x_start + 1 + i]);
+  for (size_t i = 1; i < N; ++i) {
+    result.push_back(solution.x[x_start + i]);
   }
-  for (size_t i = 0; i < N - 1; ++i) {
-    result.push_back(solution.x[y_start + 1 + i]);
+  for (size_t i = 1; i < N; ++i) {
+    result.push_back(solution.x[y_start + i]);
   }
 
   return result;
