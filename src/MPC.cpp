@@ -8,7 +8,7 @@ using CppAD::AD;
 // TODO: Set the timestep length and duration
 size_t N = 10;
 double dt = 0.1;
-double ref_v = 60;
+double ref_v = 80 * 0.44704;
 double latency = 0.1;
 
 // index helpers
@@ -52,20 +52,20 @@ class FG_eval {
     fg[0] = 0;
     for (size_t t = 0; t < N; ++t) {
       fg[0] += 1000 * CppAD::pow(vars[cte_start + t], 2);
-      fg[0] += 1000 * CppAD::pow(vars[epsi_start + t], 2);
+      fg[0] += 20000 * CppAD::pow(vars[epsi_start + t], 2);
       // penalize deviations from ref speed
       fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
 
     // Minimize the use of actuators.
     for (size_t t = 0; t < N - 1; ++t) {
-      fg[0] += CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += 50000 * CppAD::pow(vars[delta_start + t], 2);
       fg[0] += CppAD::pow(vars[a_start + t], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (size_t t = 0; t < N - 2; ++t) {
-      fg[0] += CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += 80000 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
       fg[0] += CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
@@ -97,30 +97,19 @@ class FG_eval {
       AD<double> cte0 = vars[cte_start + t - 1];
       AD<double> epsi0 = vars[epsi_start + t - 1];
 
+      // following the 3rd degree polynomial
+      AD<double> f0 = coeffs[0] + coeffs[1] * x0 + CppAD::pow(x0, 2) * coeffs[2] + CppAD::pow(x0, 3) * coeffs[3];
+      // psi desired is calculated as arctan(f'(x_t))
+      AD<double> psides0 = CppAD::atan(3 * CppAD::pow(x0, 2) * coeffs[3] + 2 * coeffs[2] * x0 +coeffs[1]);
       // actuation
-      AD<double> a0;
-      AD<double> delta0;
-
-      // handling the control latency
-      double delay = latency / dt;
-      if (t > delay) {
-        a0 = vars[a_start + t - (1 + delay)];
-        delta0 = vars[delta_start + t - (1 + delay)];
-      } else {
-        a0 = vars[a_start + t -1];
-        delta0 = vars[delta_start + t -1];
-      }
+      AD<double> a0 = vars[a_start + t - 1];
+      AD<double> delta0 = vars[delta_start + t - 1];
 
       // formulating state variable equations so that they can be used by the solver
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
       fg[1 + psi_start + t] = psi1 - (psi0 + v0 / Lf * delta0 * dt);
       fg[1 + v_start + t] = v1 - (v0 + a0 * dt);
-
-      // following the 3rd degree polynomial
-      AD<double> f0 = coeffs[0] + coeffs[1] * x0 + CppAD::pow(x0, 2) * coeffs[2] + CppAD::pow(x0, 3) * coeffs[3];
-      // psi desired is calculated as arctan(f'(x_t))
-      AD<double> psides0 = CppAD::atan(3 * CppAD::pow(x0, 2) * coeffs[3] + 2 * coeffs[2] * x0 +coeffs[1]);
 
       // error equations
       fg[1 + cte_start + t] = cte1 - (f0 - y0 + v0 * CppAD::sin(epsi0) * dt);
@@ -258,11 +247,11 @@ vector<double> MPC::Solve(const Eigen::VectorXd& state, const Eigen::VectorXd& c
   //
 
   std::vector<double> result {solution.x[a_start], solution.x[delta_start]};
-  for (size_t i = 0; i < N - 1; ++i) {
-    result.push_back(solution.x[x_start + 1 + i]);
+  for (size_t i = 1; i < N; ++i) {
+    result.push_back(solution.x[x_start + i]);
   }
-  for (size_t i = 0; i < N - 1; ++i) {
-    result.push_back(solution.x[y_start + 1 + i]);
+  for (size_t i = 1; i < N; ++i) {
+    result.push_back(solution.x[y_start + i]);
   }
 
   return result;

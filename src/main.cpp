@@ -65,12 +65,15 @@ Eigen::VectorXd polyfit(const Eigen::VectorXd& xvals, const Eigen::VectorXd& yva
   return result;
 }
 
+const double Lf = 2.67;
 
 int main() {
   uWS::Hub h;
 
   // MPC is initialized here!
   MPC mpc;
+
+
 
   h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -93,13 +96,35 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
-          /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          */
-          double steer_value = 0;
-          double throttle_value = 0;
 
-          // transform waypoint coordinates to vehicle coordinates
+          // transform waypoint coordinates to vehicle coordinates at time t
+          // ###################################################################
+          std::vector<double> x_wp_t;
+          std::vector<double> y_wp_t;
+
+          for (int i = 0; i < ptsx.size(); ++i) {
+            x_wp_t.push_back(cos(-psi) * (ptsx[i] - px) - sin(-psi) * (ptsy[i] - py));
+            y_wp_t.push_back(sin(-psi) * (ptsx[i] - px) + cos(-psi) * (ptsy[i] - py));
+          }
+
+          // transform waypoint coordinates to vehicle coordinates at time t + latency
+          // ###################################################################
+          double steer_value = j[1]["steering_angle"];
+          steer_value *= -1;
+          double throttle_value = j[1]["throttle"];
+          double dt_latency = 0.1;
+
+          // convert speed mph to m/s
+          v *= 0.44704;
+          // predicting state variables with motion model
+          // to time t + latency
+          // latency: dt = 0.1
+          px += v * cos(psi) * dt_latency;
+          py += v * sin(psi) * dt_latency;
+          psi += v / Lf * steer_value * dt_latency;
+          v += throttle_value * dt_latency;
+
+
           Eigen::VectorXd trans_wp_x(ptsx.size());
           Eigen::VectorXd trans_wp_y(ptsx.size());
 
@@ -110,11 +135,12 @@ int main() {
 
           // coefficients of 3rd degree polynomial for waypoint / reference trajectory in vehicle coordinates
           Eigen::VectorXd poly_coeffs = polyfit(trans_wp_x, trans_wp_y, 3);
-          // cte calculated in vehicle coordinates at x=0, y=0
-          double cte = polyeval(poly_coeffs, 0) - 0;
+
           // atan of f'(x) where f(x) is a 3rd degree polynomial
           // psi in vehicle coordinates = 0, x = 0
           double epsi = 0 - atan(poly_coeffs[1]);
+          // cte calculated in vehicle coordinates at x=0, y=0
+          double cte = polyeval(poly_coeffs, 0);
 
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi;
@@ -146,19 +172,19 @@ int main() {
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
-          //Display the waypoints/reference line
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
+//          //Display the waypoints/reference line
+//          vector<double> next_x_vals;
+//          vector<double> next_y_vals;
+//
+//          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
+//          // the points in the simulator are connected by a Yellow line
+//          for (size_t i = 1; i < 20; ++i) {
+//            next_x_vals.push_back(2 * i);
+//            next_y_vals.push_back(polyeval(poly_coeffs, 2 * i));
+//          }
 
-          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
-          // the points in the simulator are connected by a Yellow line
-          for (size_t i = 0; i < ptsx.size(); ++i) {
-            next_x_vals.push_back(trans_wp_x[i]);
-            next_y_vals.push_back(trans_wp_y[i]);
-          }
-
-          msgJson["next_x"] = next_x_vals;
-          msgJson["next_y"] = next_y_vals;
+          msgJson["next_x"] = x_wp_t;
+          msgJson["next_y"] = y_wp_t;
 
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
