@@ -102,7 +102,7 @@ int main() {
           std::vector<double> x_wp_t;
           std::vector<double> y_wp_t;
 
-          for (int i = 0; i < ptsx.size(); ++i) {
+          for (size_t i = 0; i < ptsx.size(); ++i) {
             x_wp_t.push_back(cos(-psi) * (ptsx[i] - px) - sin(-psi) * (ptsy[i] - py));
             y_wp_t.push_back(sin(-psi) * (ptsx[i] - px) + cos(-psi) * (ptsy[i] - py));
           }
@@ -140,7 +140,7 @@ int main() {
           // psi in vehicle coordinates = 0, x = 0
           double epsi = 0 - atan(poly_coeffs[1]);
           // cte calculated in vehicle coordinates at x=0, y=0
-          double cte = polyeval(poly_coeffs, 0);
+          double cte = polyeval(poly_coeffs, 0) * cos(psi);
 
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi;

@@ -100,7 +100,7 @@ class FG_eval {
       // following the 3rd degree polynomial
       AD<double> f0 = coeffs[0] + coeffs[1] * x0 + CppAD::pow(x0, 2) * coeffs[2] + CppAD::pow(x0, 3) * coeffs[3];
       // psi desired is calculated as arctan(f'(x_t))
-      AD<double> psides0 = CppAD::atan(3 * CppAD::pow(x0, 2) * coeffs[3] + 2 * coeffs[2] * x0 +coeffs[1]);
+      AD<double> psides0 = CppAD::atan(3 * CppAD::pow(x0 - CppAD::sin(psi0), 2) * coeffs[3] + 2 * coeffs[2] * (x0 - CppAD::sin(psi0)) +coeffs[1]);
       // actuation
       AD<double> a0 = vars[a_start + t - 1];
       AD<double> delta0 = vars[delta_start + t - 1];
@@ -112,7 +112,7 @@ class FG_eval {
       fg[1 + v_start + t] = v1 - (v0 + a0 * dt);
 
       // error equations
-      fg[1 + cte_start + t] = cte1 - (f0 - y0 + v0 * CppAD::sin(epsi0) * dt);
+      fg[1 + cte_start + t] = cte1 - (CppAD::cos(psi0) * f0 - CppAD::cos(psi0) * y0 + v0 * CppAD::sin(epsi0) * dt);
       fg[1 + epsi_start + t] = epsi1 - (psi0 - psides0 + v0 / Lf * delta0 * dt);
     }
   }
